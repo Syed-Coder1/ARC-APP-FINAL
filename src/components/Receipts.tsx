@@ -51,10 +51,6 @@ export function Receipts({ showForm: externalShowForm, onCloseForm }: ReceiptsPr
       
       if (!existingClient) {
         // Create client automatically
-        const { createClient } = await import('../hooks/useDatabase');
-        const clientHook = createClient;
-        
-        // We need to create the client first
         const newClientData = {
           name: formData.clientName,
           cnic: formData.clientCnic,
@@ -65,8 +61,6 @@ export function Receipts({ showForm: externalShowForm, onCloseForm }: ReceiptsPr
           notes: 'Auto-created from receipt',
         };
         
-        // Import database service directly
-        const { db } = await import('../services/database');
         await db.createClient(newClientData);
       }
       
@@ -198,7 +192,12 @@ export function Receipts({ showForm: externalShowForm, onCloseForm }: ReceiptsPr
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Receipts</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Receipts</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage payment receipts and transactions
+          </p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={handleExport}
@@ -311,7 +310,7 @@ export function Receipts({ showForm: externalShowForm, onCloseForm }: ReceiptsPr
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600 dark:text-green-400">
-                      ₨{receipt.amount.toLocaleString()}
+                      Rs. {receipt.amount.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
                       {receipt.natureOfWork}
@@ -349,8 +348,8 @@ export function Receipts({ showForm: externalShowForm, onCloseForm }: ReceiptsPr
 
       {/* New Receipt Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
               {editingReceipt ? 'Edit Receipt' : 'New Receipt'}
             </h2>

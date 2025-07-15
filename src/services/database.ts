@@ -1,8 +1,8 @@
 import { User, Client, Receipt, Expense, Activity, Notification } from '../types';
 
 class DatabaseService {
-  private dbName = 'arc-secret';
-  private dbVersion = 2; // Increment version to trigger database upgrade
+  private dbName = 'arkive-database';
+  private dbVersion = 3; // Increment version for cleanup
   private db: IDBDatabase | null = null;
 
   async init(): Promise<void> {
@@ -33,70 +33,57 @@ class DatabaseService {
           console.log('Database upgrade needed. Old version:', event.oldVersion, 'New version:', event.newVersion);
           const db = (event.target as IDBOpenDBRequest).result;
 
-        // Users store
-        if (!db.objectStoreNames.contains('users')) {
-          console.log('Creating users store...');
-          const userStore = db.createObjectStore('users', { keyPath: 'id' });
-          userStore.createIndex('username', 'username', { unique: true });
-          console.log('Users store created');
-        }
+          // Clean up old stores if they exist
+          const storesToDelete = ['whiteboards'];
+          storesToDelete.forEach(storeName => {
+            if (db.objectStoreNames.contains(storeName)) {
+              db.deleteObjectStore(storeName);
+              console.log(`Deleted obsolete store: ${storeName}`);
+            }
+          });
 
-        // Clients store
-        if (!db.objectStoreNames.contains('clients')) {
-          const clientStore = db.createObjectStore('clients', { keyPath: 'id' });
-          clientStore.createIndex('cnic', 'cnic', { unique: true });
-          clientStore.createIndex('name', 'name');
-        }
+          // Users store
+          if (!db.objectStoreNames.contains('users')) {
+            console.log('Creating users store...');
+            const userStore = db.createObjectStore('users', { keyPath: 'id' });
+            userStore.createIndex('username', 'username', { unique: true });
+            console.log('Users store created');
+          }
 
-        // Receipts store
-        if (!db.objectStoreNames.contains('receipts')) {
-          const receiptStore = db.createObjectStore('receipts', { keyPath: 'id' });
-          receiptStore.createIndex('clientCnic', 'clientCnic');
-          receiptStore.createIndex('date', 'date');
-        }
+          // Clients store
+          if (!db.objectStoreNames.contains('clients')) {
+            const clientStore = db.createObjectStore('clients', { keyPath: 'id' });
+            clientStore.createIndex('cnic', 'cnic', { unique: true });
+            clientStore.createIndex('name', 'name');
+          }
 
-        // Expenses store
-        if (!db.objectStoreNames.contains('expenses')) {
-          const expenseStore = db.createObjectStore('expenses', { keyPath: 'id' });
-          expenseStore.createIndex('date', 'date');
-          expenseStore.createIndex('category', 'category');
-        }
+          // Receipts store
+          if (!db.objectStoreNames.contains('receipts')) {
+            const receiptStore = db.createObjectStore('receipts', { keyPath: 'id' });
+            receiptStore.createIndex('clientCnic', 'clientCnic');
+            receiptStore.createIndex('date', 'date');
+          }
 
-        // Activities store
-        if (!db.objectStoreNames.contains('activities')) {
-          const activityStore = db.createObjectStore('activities', { keyPath: 'id' });
-          activityStore.createIndex('userId', 'userId');
-          activityStore.createIndex('timestamp', 'timestamp');
-        }
+          // Expenses store
+          if (!db.objectStoreNames.contains('expenses')) {
+            const expenseStore = db.createObjectStore('expenses', { keyPath: 'id' });
+            expenseStore.createIndex('date', 'date');
+            expenseStore.createIndex('category', 'category');
+          }
 
-        // Notifications store
-        if (!db.objectStoreNames.contains('notifications')) {
-          const notificationStore = db.createObjectStore('notifications', { keyPath: 'id' });
-          notificationStore.createIndex('createdAt', 'createdAt');
-        }
+          // Activities store
+          if (!db.objectStoreNames.contains('activities')) {
+            const activityStore = db.createObjectStore('activities', { keyPath: 'id' });
+            activityStore.createIndex('userId', 'userId');
+            activityStore.createIndex('timestamp', 'timestamp');
+          }
 
-        // Whiteboards store
-        console.log('Checking whiteboards store...');
-        if (!db.objectStoreNames.contains('whiteboards')) {
-          console.log('Creating whiteboards store...');
-          const whiteboardStore = db.createObjectStore('whiteboards', { keyPath: 'id' });
-          whiteboardStore.createIndex('createdBy', 'createdBy');
-          whiteboardStore.createIndex('updatedAt', 'updatedAt');
-          whiteboardStore.createIndex('isFavorite', 'isFavorite');
-          console.log('Whiteboards store created with indexes');
-        } else {
-          console.log('Whiteboards store already exists');
-          // Delete and recreate the store to ensure proper structure
-          db.deleteObjectStore('whiteboards');
-          console.log('Deleted existing whiteboards store');
-          const whiteboardStore = db.createObjectStore('whiteboards', { keyPath: 'id' });
-          whiteboardStore.createIndex('createdBy', 'createdBy');
-          whiteboardStore.createIndex('updatedAt', 'updatedAt');
-          whiteboardStore.createIndex('isFavorite', 'isFavorite');
-          console.log('Recreated whiteboards store with indexes');
-        }
-      };
-      // Removed extra closing curly brace here
+          // Notifications store
+          if (!db.objectStoreNames.contains('notifications')) {
+            const notificationStore = db.createObjectStore('notifications', { keyPath: 'id' });
+            notificationStore.createIndex('createdAt', 'createdAt');
+          }
+        };
       } catch (error) {
         console.error('Database: Error during initialization:', error);
         reject(error);
@@ -287,7 +274,7 @@ class DatabaseService {
     
     const notification: Notification = {
       id: crypto.randomUUID(),
-      message: `New receipt created: ₨${receipt.amount.toLocaleString()} for ${receipt.clientName}`,
+      message: `New receipt created: Rs. ${receipt.amount.toLocaleString()} for ${receipt.clientName}`,
       type: 'info',
       read: false,
       createdAt: new Date(),
@@ -563,83 +550,6 @@ class DatabaseService {
     });
   }
 
-  // Whiteboard operations
-  async createWhiteboard(whiteboard: Omit<Whiteboard, 'id' | 'createdAt' | 'updatedAt' | 'lastViewedAt'>): Promise<Whiteboard> {
-    console.log('Database: Creating whiteboard with data:', whiteboard);
-    if (!this.db) {
-      await this.init();
-    }
-    
-    const store = await this.getObjectStore('whiteboards', 'readwrite');
-    console.log('Database: Got whiteboards store');
-    
-    const newWhiteboard: Whiteboard = {
-      ...whiteboard,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      lastViewedAt: new Date(),
-    };
-    console.log('Database: Prepared new whiteboard:', newWhiteboard);
-    
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = store.transaction;
-        transaction.onerror = (event) => {
-          console.error('Database: Transaction error:', transaction.error);
-          reject(transaction.error);
-        };
-        
-        const request = store.add(newWhiteboard);
-        console.log('Database: Adding whiteboard to store');
-        
-        request.onsuccess = () => {
-          console.log('Database: Successfully created whiteboard with ID:', newWhiteboard.id);
-          resolve(newWhiteboard);
-        };
-        
-        request.onerror = (event) => {
-          console.error('Database: Error creating whiteboard:', request.error);
-          reject(request.error);
-        };
-      } catch (error) {
-        console.error('Database: Exception while creating whiteboard:', error);
-        reject(error);
-      }
-    });
-  }
-
-  async getAllWhiteboards(): Promise<Whiteboard[]> {
-    const store = await this.getObjectStore('whiteboards');
-    
-    return new Promise((resolve, reject) => {
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async updateWhiteboard(whiteboard: Whiteboard): Promise<void> {
-    const store = await this.getObjectStore('whiteboards', 'readwrite');
-    const updatedWhiteboard = { ...whiteboard, updatedAt: new Date() };
-    
-    return new Promise((resolve, reject) => {
-      const request = store.put(updatedWhiteboard);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async deleteWhiteboard(id: string): Promise<void> {
-    const store = await this.getObjectStore('whiteboards', 'readwrite');
-    
-    return new Promise((resolve, reject) => {
-      const request = store.delete(id);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
   // Backup and restore
   async exportData(): Promise<string> {
     const users = await this.getAllUsers();
@@ -648,7 +558,6 @@ class DatabaseService {
     const expenses = await this.getAllExpenses();
     const activities = await this.getAllActivities();
     const notifications = await this.getAllNotifications();
-    const whiteboards = await this.getAllWhiteboards();
 
     const data = {
       users,
@@ -657,8 +566,9 @@ class DatabaseService {
       expenses,
       activities,
       notifications,
-      whiteboards,
       exportDate: new Date().toISOString(),
+      version: this.dbVersion,
+      appName: 'Arkive'
     };
 
     return JSON.stringify(data, null, 2);
@@ -668,7 +578,7 @@ class DatabaseService {
     const data = JSON.parse(jsonData);
     
     // Clear existing data
-    const stores = ['users', 'clients', 'receipts', 'expenses', 'activities', 'notifications', 'whiteboards'];
+    const stores = ['users', 'clients', 'receipts', 'expenses', 'activities', 'notifications'];
     for (const storeName of stores) {
       const store = await this.getObjectStore(storeName, 'readwrite');
       await new Promise<void>((resolve, reject) => {
@@ -696,7 +606,6 @@ class DatabaseService {
     await importStore('expenses', data.expenses || []);
     await importStore('activities', data.activities || []);
     await importStore('notifications', data.notifications || []);
-    await importStore('whiteboards', data.whiteboards || []);
   }
 }
 

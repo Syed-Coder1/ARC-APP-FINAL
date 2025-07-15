@@ -5,10 +5,9 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { Receipts } from './components/Receipts';
 import { Clients } from './components/Clients';
-import { Expenses, ActivityLog, BackupRestore, Reports } from './components/SimplePages';
+import { Expenses, ActivityLog, BackupRestore } from './components/SimplePages';
 import { Settings } from './components/Settings';
 import { AdvancedAnalytics, SmartNotifications } from './components/AdvancedFeatures';
-import { Whiteboards } from './components/Whiteboards';
 import { clsx } from 'clsx';
 
 function AppContent() {
@@ -21,8 +20,11 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading Arkive...</p>
+        </div>
       </div>
     );
   }
@@ -74,10 +76,6 @@ function AppContent() {
         return <Clients showForm={showClientForm} onCloseForm={() => setShowClientForm(false)} />;
       case 'expenses':
         return <Expenses showForm={showExpenseForm} onCloseForm={() => setShowExpenseForm(false)} />;
-      case 'reports':
-        return <Reports />;
-      case 'whiteboards':
-        return <Whiteboards />;
       case 'analytics':
         return <AdvancedAnalytics />;
       case 'smart-notifications':

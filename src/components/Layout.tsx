@@ -1,9 +1,8 @@
-// Layout.tsx
 import React, { useState } from 'react';
 import {
   Home, Receipt, Users, CreditCard, BarChart3, Activity, HardDrive,
   Settings, LogOut, Menu, X, Moon, Sun, TrendingUp, ChevronLeft,
-  ChevronRight, FileText
+  ChevronRight, Bell
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { clsx } from 'clsx';
@@ -19,9 +18,8 @@ const menuItems = [
   { id: 'receipts', label: 'Receipts', icon: Receipt },
   { id: 'clients', label: 'Clients', icon: Users },
   { id: 'expenses', label: 'Expenses', icon: CreditCard },
-  { id: 'reports', label: 'Reports', icon: BarChart3 },
-  { id: 'whiteboards', label: 'Whiteboards', icon: FileText },
   { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+  { id: 'smart-notifications', label: 'Notifications', icon: Bell },
   { id: 'activity', label: 'Activity Log', icon: Activity },
   { id: 'backup', label: 'Backup/Restore', icon: HardDrive },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -96,10 +94,24 @@ export function Layout({ children, currentPage, onPageChange }: LayoutProps) {
           <div className={clsx("border-b border-gray-200 dark:border-gray-700", sidebarCollapsed ? "p-4" : "p-6")}>
             <div className="flex items-center justify-between">
               {!sidebarCollapsed && (
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">Tax Office</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Management System</p>
+                <div className="flex items-center">
+                  <img 
+                    src="/ChatGPT Image Jul 15, 2025, 02_36_04 PM.png" 
+                    alt="Arkive Logo" 
+                    className="w-8 h-8 mr-3"
+                  />
+                  <div>
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">Arkive</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Tax Management</p>
+                  </div>
                 </div>
+              )}
+              {sidebarCollapsed && (
+                <img 
+                  src="/ChatGPT Image Jul 15, 2025, 02_36_04 PM.png" 
+                  alt="Arkive Logo" 
+                  className="w-8 h-8 mx-auto"
+                />
               )}
               <button
                 onClick={toggleSidebarCollapse}
@@ -192,7 +204,7 @@ export function Layout({ children, currentPage, onPageChange }: LayoutProps) {
 
       {/* Content */}
       <main className="flex-1 overflow-x-hidden">
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto min-h-screen">
           {children}
         </div>
       </main>

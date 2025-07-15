@@ -10,16 +10,21 @@ import {
   Check,
   AlertCircle,
   Calendar,
-  FileText,
-  CreditCard
+  CreditCard,
+  BarChart3
 } from 'lucide-react';
 import { useDatabase } from '../hooks/useDatabase';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 interface DashboardProps {
+  onPageChange: (page: string) => void;
   onOpenForm: (formType: 'receipt' | 'client' | 'expense') => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+export const Dashboard: React.FC<DashboardProps> = ({ onPageChange, onOpenForm }) => {
   const { 
     receipts, 
     clients, 
@@ -31,12 +36,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
   
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [expenseData, setExpenseData] = useState<any[]>([]);
 
   // Calculate stats
   const totalRevenue = receipts.reduce((sum, receipt) => sum + receipt.amount, 0);
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const netProfit = totalRevenue - totalExpenses;
   const unreadNotifications = notifications.filter(n => !n.read);
+
+  // Current month stats
+  const currentMonth = new Date();
+  const currentMonthStart = startOfMonth(currentMonth);
+  const currentMonthEnd = endOfMonth(currentMonth);
+  
+  const currentMonthReceipts = receipts.filter(r => 
+    r.date >= currentMonthStart && r.date <= currentMonthEnd
+  );
+  const currentMonthExpenses = expenses.filter(e => 
+    e.date >= currentMonthStart && e.date <= currentMonthEnd
+  );
+  
+  const currentMonthRevenue = currentMonthReceipts.reduce((sum, r) => sum + r.amount, 0);
+  const currentMonthExpenseTotal = currentMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Generate chart data
+  useEffect(() => {
+    // Monthly trends for last 6 months
+    const monthlyData = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = subMonths(currentMonth, i);
+      const monthStart = startOfMonth(monthDate);
+      const monthEnd = endOfMonth(monthDate);
+      
+      const monthReceipts = receipts.filter(r => 
+        r.date >= monthStart && r.date <= monthEnd
+      );
+      const monthExpenses = expenses.filter(e => 
+        e.date >= monthStart && e.date <= monthEnd
+      );
+      
+      const income = monthReceipts.reduce((sum, r) => sum + r.amount, 0);
+      const expense = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+      
+      monthlyData.push({
+        month: format(monthDate, 'MMM'),
+        income,
+        expense,
+        profit: income - expense
+      });
+    }
+    setChartData(monthlyData);
+
+    // Expense breakdown
+    const expenseCategories = expenses.reduce((acc, expense) => {
+      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const expenseBreakdown = Object.entries(expenseCategories).map(([category, amount]) => ({
+      category: category.charAt(0).toUpperCase() + category.slice(1),
+      amount,
+      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
+    }));
+    
+    setExpenseData(expenseBreakdown);
+  }, [receipts, expenses, currentMonth]);
 
   // Handle mark all as read
   const handleMarkAllAsRead = async () => {
@@ -80,6 +145,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
       color: 'bg-purple-500',
       hoverColor: 'hover:bg-purple-600',
       action: () => onOpenForm('expense')
+    },
+    {
+      title: 'View Analytics',
+      description: 'Detailed analytics & insights',
+      icon: BarChart3,
+      color: 'bg-orange-500',
+      hoverColor: 'hover:bg-orange-600',
+      action: () => onPageChange('analytics')
     }
   ];
 
@@ -88,6 +161,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
     {
       title: 'Total Revenue',
       value: `Rs. ${totalRevenue.toLocaleString()}`,
+      change: currentMonthRevenue > 0 ? `+Rs. ${currentMonthRevenue.toLocaleString()} this month` : 'No revenue this month',
       icon: TrendingUp,
       color: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-900/20'
@@ -95,6 +169,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
     {
       title: 'Total Clients',
       value: clients.length.toString(),
+      change: `${clients.filter(c => new Date(c.createdAt) >= currentMonthStart).length} new this month`,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50 dark:bg-blue-900/20'
@@ -102,6 +177,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
     {
       title: 'Total Expenses',
       value: `Rs. ${totalExpenses.toLocaleString()}`,
+      change: currentMonthExpenseTotal > 0 ? `Rs. ${currentMonthExpenseTotal.toLocaleString()} this month` : 'No expenses this month',
       icon: DollarSign,
       color: 'text-red-600',
       bgColor: 'bg-red-50 dark:bg-red-900/20'
@@ -109,6 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
     {
       title: 'Net Profit',
       value: `Rs. ${netProfit.toLocaleString()}`,
+      change: `${netProfit >= 0 ? 'Profit' : 'Loss'} margin: ${totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%`,
       icon: TrendingUp,
       color: netProfit >= 0 ? 'text-green-600' : 'text-red-600',
       bgColor: netProfit >= 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'
@@ -144,7 +221,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 animate-slideInRight">
+            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 animate-slideInRight max-h-96 overflow-y-auto">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex justify-between items-center">
                   <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -176,7 +253,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
                     No notifications yet
                   </div>
                 ) : (
-                  notifications.slice(0, 5).map((notification) => (
+                  notifications.slice(0, 10).map((notification) => (
                     <div
                       key={notification.id}
                       className={`p-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 ${
@@ -187,25 +264,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
                         <div className={`p-1 rounded-full ${
                           notification.type === 'success' ? 'bg-green-100 dark:bg-green-900/30' :
                           notification.type === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                          notification.type === 'error' ? 'bg-red-100 dark:bg-red-900/30' :
                           'bg-blue-100 dark:bg-blue-900/30'
                         }`}>
                           {notification.type === 'success' ? (
                             <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
                           ) : notification.type === 'warning' ? (
                             <AlertCircle className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
+                          ) : notification.type === 'error' ? (
+                            <AlertCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
                           ) : (
                             <Bell className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {notification.title}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {notification.message}
                           </p>
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            {new Date(notification.createdAt).toLocaleDateString()}
+                            {format(new Date(notification.createdAt), 'MMM dd, yyyy HH:mm')}
                           </p>
                         </div>
                         {!notification.read && (
@@ -234,7 +311,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
             className={`${card.bgColor} p-6 rounded-xl border border-gray-200 dark:border-gray-700 hover-lift transition-all duration-300`}
             style={{ animationDelay: `${index * 100}ms` }}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                   {card.title}
@@ -245,8 +322,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
               </div>
               <card.icon className={`w-8 h-8 ${card.color}`} />
             </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {card.change}
+            </p>
           </div>
         ))}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trends */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Revenue Trends (Last 6 Months)
+          </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, '']} />
+              <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={3} name="Income" />
+              <Line type="monotone" dataKey="expense" stroke="#EF4444" strokeWidth={3} name="Expenses" />
+              <Line type="monotone" dataKey="profit" stroke="#3B82F6" strokeWidth={3} name="Profit" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Expense Breakdown */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Expense Breakdown
+          </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={expenseData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ category, percentage }) => `${category}: ${percentage.toFixed(1)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="amount"
+              >
+                {expenseData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Amount']} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -254,7 +381,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           Quick Actions
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action, index) => (
             <button
               key={action.title}
@@ -287,7 +414,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
             </h2>
             <Receipt className="w-5 h-5 text-gray-400" />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-64 overflow-y-auto">
             {receipts.slice(0, 5).map((receipt) => (
               <div
                 key={receipt.id}
@@ -298,7 +425,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
                     {receipt.clientName}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(receipt.date).toLocaleDateString()}
+                    {format(new Date(receipt.date), 'MMM dd, yyyy')}
                   </p>
                 </div>
                 <span className="font-semibold text-green-600 dark:text-green-400">
@@ -322,7 +449,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
             </h2>
             <CreditCard className="w-5 h-5 text-gray-400" />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-64 overflow-y-auto">
             {expenses.slice(0, 5).map((expense) => (
               <div
                 key={expense.id}
@@ -333,7 +460,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenForm }) => {
                     {expense.description}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {expense.category} • {new Date(expense.date).toLocaleDateString()}
+                    {expense.category} • {format(new Date(expense.date), 'MMM dd, yyyy')}
                   </p>
                 </div>
                 <span className="font-semibold text-red-600 dark:text-red-400">

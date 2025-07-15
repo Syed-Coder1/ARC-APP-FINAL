@@ -28,11 +28,16 @@ export function Login() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-4">
-            <LogIn className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+          <div className="mx-auto w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-4">
+            <img 
+              src="/ChatGPT Image Jul 15, 2025, 02_36_04 PM.png" 
+              alt="Arkive Logo" 
+              className="w-12 h-12"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tax Office System</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Sign in to your account</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Arkive</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Tax Office Management System</p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Sign in to your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

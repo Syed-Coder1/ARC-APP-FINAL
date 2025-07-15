@@ -6,7 +6,6 @@ import {
   TrendingUp, 
   Users, 
   DollarSign, 
-  FileText,
   BarChart3,
   PieChart as PieChartIcon,
   Download,
@@ -15,12 +14,16 @@ import {
   CheckCircle,
   Clock,
   Target,
-  Plus
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  Minus
 } from 'lucide-react';
 import { useReceipts, useClients, useExpenses } from '../hooks/useDatabase';
-import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO, startOfYear, endOfYear, subYears } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { db } from '../services/database';
+import { exportService } from '../services/export';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316'];
 
@@ -40,8 +43,15 @@ export function AdvancedAnalytics() {
     clientPerformance: [],
     paymentMethodAnalysis: [],
     profitMargins: [],
-    growthMetrics: {}
+    growthMetrics: {},
+    yearlyComparison: [],
+    topClients: [],
+    expenseAnalysis: [],
+    revenueForecasting: []
   });
+
+  const [selectedMetric, setSelectedMetric] = useState('revenue');
+  const [comparisonPeriod, setComparisonPeriod] = useState('month');
 
   useEffect(() => {
     generateAnalytics();
@@ -81,17 +91,29 @@ export function AdvancedAnalytics() {
         income,
         expense,
         profit: income - expense,
-        receiptCount: monthReceipts.length
+        receiptCount: monthReceipts.length,
+        clientCount: new Set(monthReceipts.map(r => r.clientCnic)).size,
+        avgReceiptValue: monthReceipts.length > 0 ? income / monthReceipts.length : 0
       });
       
       currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
     }
 
-    // Client performance analysis
+    // Client performance analysis with advanced metrics
     const clientPerformance = clients.map(client => {
       const clientReceipts = filteredReceipts.filter(r => r.clientCnic === client.cnic);
       const totalAmount = clientReceipts.reduce((sum, r) => sum + r.amount, 0);
       const avgAmount = clientReceipts.length > 0 ? totalAmount / clientReceipts.length : 0;
+      
+      // Calculate client lifetime value and frequency
+      const firstPayment = clientReceipts.length > 0 ? 
+        Math.min(...clientReceipts.map(r => r.date.getTime())) : null;
+      const lastPayment = clientReceipts.length > 0 ? 
+        Math.max(...clientReceipts.map(r => r.date.getTime())) : null;
+      
+      const daysBetween = firstPayment && lastPayment ? 
+        (lastPayment - firstPayment) / (1000 * 60 * 60 * 24) : 0;
+      const frequency = daysBetween > 0 ? clientReceipts.length / (daysBetween / 30) : 0; // payments per month
       
       return {
         name: client.name,
@@ -99,10 +121,12 @@ export function AdvancedAnalytics() {
         totalAmount,
         receiptCount: clientReceipts.length,
         avgAmount,
-        lastPayment: clientReceipts.length > 0 ? 
-          Math.max(...clientReceipts.map(r => r.date.getTime())) : null
+        frequency,
+        lastPayment: lastPayment,
+        lifetimeValue: totalAmount,
+        riskScore: frequency < 0.5 ? 'High' : frequency < 1 ? 'Medium' : 'Low'
       };
-    }).sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 10);
+    }).sort((a, b) => b.totalAmount - a.totalAmount);
 
     // Payment method analysis
     const paymentMethods = filteredReceipts.reduce((acc, receipt) => {
@@ -113,8 +137,49 @@ export function AdvancedAnalytics() {
     const paymentMethodAnalysis = Object.entries(paymentMethods).map(([method, amount]) => ({
       method: method.replace('_', ' ').toUpperCase(),
       amount,
-      percentage: (amount / filteredReceipts.reduce((sum, r) => sum + r.amount, 0)) * 100
+      percentage: (amount / filteredReceipts.reduce((sum, r) => sum + r.amount, 0)) * 100,
+      count: filteredReceipts.filter(r => r.paymentMethod === method).length
     }));
+
+    // Yearly comparison
+    const currentYear = new Date().getFullYear();
+    const yearlyComparison = [];
+    for (let i = 2; i >= 0; i--) {
+      const year = currentYear - i;
+      const yearStart = startOfYear(new Date(year, 0, 1));
+      const yearEnd = endOfYear(new Date(year, 11, 31));
+      
+      const yearReceipts = receipts.filter(r => 
+        isWithinInterval(r.date, { start: yearStart, end: yearEnd })
+      );
+      const yearExpenses = expenses.filter(e => 
+        isWithinInterval(e.date, { start: yearStart, end: yearEnd })
+      );
+      
+      const income = yearReceipts.reduce((sum, r) => sum + r.amount, 0);
+      const expense = yearExpenses.reduce((sum, e) => sum + e.amount, 0);
+      
+      yearlyComparison.push({
+        year: year.toString(),
+        income,
+        expense,
+        profit: income - expense,
+        clientCount: new Set(yearReceipts.map(r => r.clientCnic)).size
+      });
+    }
+
+    // Expense analysis by category
+    const expenseCategories = filteredExpenses.reduce((acc, expense) => {
+      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+      return acc;
+    }, {});
+
+    const expenseAnalysis = Object.entries(expenseCategories).map(([category, amount]) => ({
+      category: category.charAt(0).toUpperCase() + category.slice(1),
+      amount,
+      percentage: (amount / filteredExpenses.reduce((sum, e) => sum + e.amount, 0)) * 100,
+      count: filteredExpenses.filter(e => e.category === category).length
+    })).sort((a, b) => b.amount - a.amount);
 
     // Growth metrics
     const currentMonthReceipts = filteredReceipts.filter(r => 
@@ -135,9 +200,34 @@ export function AdvancedAnalytics() {
     const growthRate = lastMonthIncome > 0 ? 
       ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100 : 0;
 
+    // Revenue forecasting (simple linear trend)
+    const recentMonths = monthlyTrends.slice(-6);
+    const avgGrowth = recentMonths.length > 1 ? 
+      recentMonths.reduce((sum, month, index) => {
+        if (index === 0) return 0;
+        const prevMonth = recentMonths[index - 1];
+        return sum + (prevMonth.income > 0 ? (month.income - prevMonth.income) / prevMonth.income : 0);
+      }, 0) / (recentMonths.length - 1) : 0;
+
+    const revenueForecasting = [];
+    const lastMonth = monthlyTrends[monthlyTrends.length - 1];
+    if (lastMonth) {
+      for (let i = 1; i <= 6; i++) {
+        const forecastDate = new Date();
+        forecastDate.setMonth(forecastDate.getMonth() + i);
+        const forecastIncome = lastMonth.income * Math.pow(1 + avgGrowth, i);
+        
+        revenueForecasting.push({
+          month: format(forecastDate, 'MMM yyyy'),
+          forecastIncome: Math.max(0, forecastIncome),
+          confidence: Math.max(0.3, 1 - (i * 0.1)) // Decreasing confidence over time
+        });
+      }
+    }
+
     setAnalyticsData({
       monthlyTrends,
-      clientPerformance,
+      clientPerformance: clientPerformance.slice(0, 10),
       paymentMethodAnalysis,
       profitMargins: monthlyTrends.map(m => ({
         month: m.month,
@@ -148,28 +238,67 @@ export function AdvancedAnalytics() {
         lastMonthIncome,
         growthRate,
         totalClients: clients.length,
-        activeClients: clientPerformance.filter(c => c.receiptCount > 0).length
-      }
+        activeClients: clientPerformance.filter(c => c.receiptCount > 0).length,
+        avgClientValue: clientPerformance.length > 0 ? 
+          clientPerformance.reduce((sum, c) => sum + c.totalAmount, 0) / clientPerformance.length : 0,
+        retentionRate: clientPerformance.filter(c => c.frequency > 0.5).length / Math.max(1, clientPerformance.length) * 100
+      },
+      yearlyComparison,
+      topClients: clientPerformance.slice(0, 5),
+      expenseAnalysis,
+      revenueForecasting
     });
+  };
+
+  const handleExportAnalytics = async () => {
+    try {
+      const data = {
+        generatedAt: new Date().toISOString(),
+        dateRange,
+        summary: analyticsData.growthMetrics,
+        monthlyTrends: analyticsData.monthlyTrends,
+        clientPerformance: analyticsData.clientPerformance,
+        expenseAnalysis: analyticsData.expenseAnalysis,
+        paymentMethods: analyticsData.paymentMethodAnalysis
+      };
+      
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `arkive-analytics-${format(new Date(), 'yyyy-MM-dd')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Advanced Analytics</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Advanced Analytics</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Comprehensive insights and performance metrics for your business
+          </p>
+        </div>
         <div className="flex gap-4">
           <div className="flex gap-2">
             <input
               type="date"
               value={dateRange.start}
               onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
             />
             <input
               type="date"
               value={dateRange.end}
               onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
             />
           </div>
           <button
@@ -179,10 +308,17 @@ export function AdvancedAnalytics() {
             <RefreshCw size={16} />
             Refresh
           </button>
+          <button
+            onClick={handleExportAnalytics}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={16} />
+            Export
+          </button>
         </div>
       </div>
 
-      {/* Key Metrics */}
+      {/* Enhanced Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between">
@@ -191,6 +327,16 @@ export function AdvancedAnalytics() {
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {analyticsData.growthMetrics.growthRate?.toFixed(1)}%
               </p>
+              <div className="flex items-center mt-1">
+                {analyticsData.growthMetrics.growthRate >= 0 ? (
+                  <ArrowUp className="w-4 h-4 text-green-500 mr-1" />
+                ) : (
+                  <ArrowDown className="w-4 h-4 text-red-500 mr-1" />
+                )}
+                <span className={`text-xs ${analyticsData.growthMetrics.growthRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  vs last month
+                </span>
+              </div>
             </div>
             <TrendingUp className={`w-8 h-8 ${analyticsData.growthMetrics.growthRate >= 0 ? 'text-green-500' : 'text-red-500'}`} />
           </div>
@@ -199,9 +345,12 @@ export function AdvancedAnalytics() {
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Active Clients</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Client Retention</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {analyticsData.growthMetrics.activeClients}/{analyticsData.growthMetrics.totalClients}
+                {analyticsData.growthMetrics.retentionRate?.toFixed(1)}%
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {analyticsData.growthMetrics.activeClients}/{analyticsData.growthMetrics.totalClients} active
               </p>
             </div>
             <Users className="w-8 h-8 text-blue-500" />
@@ -211,10 +360,12 @@ export function AdvancedAnalytics() {
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Avg Profit Margin</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Avg Client Value</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {analyticsData.profitMargins.length > 0 ? 
-                  (analyticsData.profitMargins.reduce((sum, p) => sum + p.margin, 0) / analyticsData.profitMargins.length).toFixed(1) : 0}%
+                Rs. {analyticsData.growthMetrics.avgClientValue?.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Lifetime value per client
               </p>
             </div>
             <Target className="w-8 h-8 text-purple-500" />
@@ -226,7 +377,10 @@ export function AdvancedAnalytics() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">This Month</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ₨{analyticsData.growthMetrics.currentMonthIncome?.toLocaleString()}
+                Rs. {analyticsData.growthMetrics.currentMonthIncome?.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Revenue this month
               </p>
             </div>
             <DollarSign className="w-8 h-8 text-green-500" />
@@ -234,47 +388,60 @@ export function AdvancedAnalytics() {
         </div>
       </div>
 
-      {/* Charts */}
+      {/* Enhanced Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trends with Forecasting */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Revenue Trends</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Revenue Trends & Forecast</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analyticsData.monthlyTrends}>
+            <LineChart data={[...analyticsData.monthlyTrends, ...analyticsData.revenueForecasting.map(f => ({ ...f, income: f.forecastIncome, forecast: true }))]}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip formatter={(value) => `₨${value.toLocaleString()}`} />
-              <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} />
-              <Line type="monotone" dataKey="profit" stroke="#3B82F6" strokeWidth={2} />
+              <Tooltip formatter={(value: number, name: string) => {
+                if (name === 'forecastIncome') return [`Rs. ${value.toLocaleString()} (Forecast)`, 'Revenue'];
+                return [`Rs. ${value.toLocaleString()}`, name === 'income' ? 'Revenue' : name === 'expense' ? 'Expenses' : 'Profit'];
+              }} />
+              <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={3} name="Revenue" />
+              <Line type="monotone" dataKey="expense" stroke="#EF4444" strokeWidth={2} name="Expenses" />
+              <Line type="monotone" dataKey="profit" stroke="#3B82F6" strokeWidth={2} name="Profit" />
+              <Line type="monotone" dataKey="forecastIncome" stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" name="Forecast" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
+        {/* Enhanced Expense Analysis */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Payment Methods</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Expense Analysis</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={analyticsData.paymentMethodAnalysis}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ method, percentage }) => `${method}: ${percentage.toFixed(1)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="amount"
-              >
-                {analyticsData.paymentMethodAnalysis.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => `₨${value.toLocaleString()}`} />
-            </PieChart>
+            <BarChart data={analyticsData.expenseAnalysis}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="category" />
+              <YAxis />
+              <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, 'Amount']} />
+              <Bar dataKey="amount" fill="#EF4444" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Top Clients */}
+      {/* Yearly Comparison */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Yearly Performance Comparison</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={analyticsData.yearlyComparison}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="year" />
+            <YAxis />
+            <Tooltip formatter={(value: number) => [`Rs. ${value.toLocaleString()}`, '']} />
+            <Bar dataKey="income" fill="#10B981" name="Revenue" />
+            <Bar dataKey="expense" fill="#EF4444" name="Expenses" />
+            <Bar dataKey="profit" fill="#3B82F6" name="Profit" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Enhanced Client Performance Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Top Performing Clients</h3>
         <div className="overflow-x-auto">
@@ -283,9 +450,11 @@ export function AdvancedAnalytics() {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Client</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Receipts</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Transactions</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Avg Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Frequency</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Risk</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Payment</th>
               </tr>
             </thead>
@@ -293,13 +462,29 @@ export function AdvancedAnalytics() {
               {analyticsData.clientPerformance.map((client, index) => (
                 <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{client.name}</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{client.type}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                      {client.type}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 text-sm font-medium text-green-600 dark:text-green-400">
-                    ₨{client.totalAmount.toLocaleString()}
+                    Rs. {client.totalAmount.toLocaleString()}
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{client.receiptCount}</td>
                   <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
-                    ₨{client.avgAmount.toLocaleString()}
+                    Rs. {client.avgAmount.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                    {client.frequency.toFixed(1)}/month
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      client.riskScore === 'Low' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                      client.riskScore === 'Medium' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                      'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                    }`}>
+                      {client.riskScore}
+                    </span>
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
                     {client.lastPayment ? format(client.lastPayment, 'MMM dd, yyyy') : 'N/A'}
@@ -337,6 +522,7 @@ export function SmartNotifications() {
     const alerts = [];
     const now = new Date();
     const thirtyDaysAgo = subMonths(now, 1);
+    const sixtyDaysAgo = subMonths(now, 2);
 
     // Inactive clients
     const inactiveClients = clients.filter(client => {
@@ -353,7 +539,9 @@ export function SmartNotifications() {
         title: 'Inactive Clients Detected',
         message: `${inactiveClients.length} clients haven't made payments in the last 30 days`,
         action: 'View Clients',
-        priority: 'medium'
+        priority: 'medium',
+        count: inactiveClients.length,
+        details: inactiveClients.slice(0, 3).map(c => c.name).join(', ')
       });
     }
 
@@ -370,15 +558,16 @@ export function SmartNotifications() {
         id: 'high-expenses',
         type: 'error',
         title: 'High Expenses Alert',
-        message: `This month's expenses are 50% higher than average`,
+        message: `This month's expenses (Rs. ${currentMonthExpenses.toLocaleString()}) are 50% higher than average`,
         action: 'Review Expenses',
-        priority: 'high'
+        priority: 'high',
+        amount: currentMonthExpenses
       });
     }
 
     // Revenue milestones
     const totalRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
-    const milestones = [100000, 500000, 1000000, 5000000];
+    const milestones = [100000, 500000, 1000000, 5000000, 10000000];
     const nextMilestone = milestones.find(m => m > totalRevenue);
     
     if (nextMilestone && totalRevenue > nextMilestone * 0.9) {
@@ -386,18 +575,18 @@ export function SmartNotifications() {
         id: 'milestone-approaching',
         type: 'success',
         title: 'Milestone Approaching!',
-        message: `You're ${((nextMilestone - totalRevenue) / 1000).toFixed(0)}K away from ₨${(nextMilestone / 1000).toFixed(0)}K milestone`,
+        message: `You're Rs. ${(nextMilestone - totalRevenue).toLocaleString()} away from Rs. ${(nextMilestone / 1000).toFixed(0)}K milestone`,
         action: 'View Progress',
-        priority: 'low'
+        priority: 'low',
+        progress: (totalRevenue / nextMilestone) * 100
       });
     }
 
-    // Non-filer detection (clients with no payments in last 60 days)
+    // Non-filer detection
     const nonFilers = clients.filter(client => {
       const clientReceipts = receipts.filter(r => r.clientCnic === client.cnic);
       const lastPayment = clientReceipts.length > 0 ? 
         Math.max(...clientReceipts.map(r => r.date.getTime())) : null;
-      const sixtyDaysAgo = subMonths(now, 2);
       return !lastPayment || lastPayment < sixtyDaysAgo.getTime();
     });
 
@@ -413,24 +602,44 @@ export function SmartNotifications() {
       });
     }
 
-    // Pending work alerts (clients with recent activity but no recent payments)
-    const pendingWork = clients.filter(client => {
-      const clientReceipts = receipts.filter(r => r.clientCnic === client.cnic);
-      const recentReceipts = clientReceipts.filter(r => 
-        isWithinInterval(r.date, { start: subMonths(now, 1), end: now })
-      );
-      return recentReceipts.length === 0 && clientReceipts.length > 0;
-    });
+    // Cash flow analysis
+    const currentMonthIncome = receipts.filter(r => 
+      isWithinInterval(r.date, { start: startOfMonth(now), end: endOfMonth(now) })
+    ).reduce((sum, r) => sum + r.amount, 0);
 
-    if (pendingWork.length > 0) {
+    if (currentMonthIncome < currentMonthExpenses) {
       alerts.push({
-        id: 'pending-work',
+        id: 'negative-cashflow',
+        type: 'error',
+        title: 'Negative Cash Flow Warning',
+        message: `Expenses (Rs. ${currentMonthExpenses.toLocaleString()}) exceed income (Rs. ${currentMonthIncome.toLocaleString()}) this month`,
+        action: 'Review Finances',
+        priority: 'high',
+        deficit: currentMonthExpenses - currentMonthIncome
+      });
+    }
+
+    // Top client dependency risk
+    const clientRevenue = clients.map(client => {
+      const clientReceipts = receipts.filter(r => r.clientCnic === client.cnic);
+      return {
+        name: client.name,
+        revenue: clientReceipts.reduce((sum, r) => sum + r.amount, 0)
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+
+    const topClientRevenue = clientRevenue[0]?.revenue || 0;
+    const dependencyRatio = totalRevenue > 0 ? (topClientRevenue / totalRevenue) * 100 : 0;
+
+    if (dependencyRatio > 40) {
+      alerts.push({
+        id: 'client-dependency',
         type: 'warning',
-        title: 'Pending Work Detected',
-        message: `${pendingWork.length} clients may have pending work or payments`,
-        action: 'Review Pending',
+        title: 'High Client Dependency Risk',
+        message: `${clientRevenue[0]?.name} accounts for ${dependencyRatio.toFixed(1)}% of total revenue`,
+        action: 'Diversify Client Base',
         priority: 'medium',
-        clients: pendingWork.slice(0, 3).map(c => c.name).join(', ')
+        percentage: dependencyRatio
       });
     }
 
@@ -472,7 +681,7 @@ export function SmartNotifications() {
     setShowAddAlert(false);
   };
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'border-red-500 bg-red-50 dark:bg-red-900/20';
       case 'medium': return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20';
@@ -481,7 +690,7 @@ export function SmartNotifications() {
     }
   };
 
-  const getIcon = (type) => {
+  const getIcon = (type: string) => {
     switch (type) {
       case 'error': return <AlertTriangle className="w-5 h-5 text-red-500" />;
       case 'warning': return <Clock className="w-5 h-5 text-yellow-500" />;
@@ -493,7 +702,12 @@ export function SmartNotifications() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Smart Notifications</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Smart Notifications</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            AI-powered insights and alerts for your business
+          </p>
+        </div>
         <button
           onClick={() => setShowAddAlert(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -519,21 +733,40 @@ export function SmartNotifications() {
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3">
                   {getIcon(notification.type)}
-                  <div>
+                  <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       {notification.title}
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400 mt-1">
                       {notification.message}
                     </p>
+                    {notification.details && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        <strong>Details:</strong> {notification.details}
+                      </p>
+                    )}
                     {notification.clients && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        <strong>Clients:</strong> {notification.clients}
+                        <strong>Affected Clients:</strong> {notification.clients}
                       </p>
+                    )}
+                    {notification.progress && (
+                      <div className="mt-3">
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          <span>Progress to milestone</span>
+                          <span>{notification.progress.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${Math.min(100, notification.progress)}%` }}
+                          ></div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 ml-4">
                   {notification.custom && (
                     <button
                       onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
@@ -554,8 +787,8 @@ export function SmartNotifications() {
 
       {/* Add Custom Alert Modal */}
       {showAddAlert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Add Custom Alert</h2>
             <form onSubmit={handleAddCustomAlert} className="space-y-4">
               <div>
@@ -640,96 +873,6 @@ export function SmartNotifications() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// Quick Actions Component
-export function QuickActions() {
-  const [recentActions, setRecentActions] = useState([]);
-
-  const quickActionItems = [
-    {
-      id: 'new-receipt',
-      title: 'New Receipt',
-      description: 'Create a new payment receipt',
-      icon: FileText,
-      color: 'bg-blue-500',
-      action: () => console.log('New Receipt')
-    },
-    {
-      id: 'new-client',
-      title: 'Add Client',
-      description: 'Register a new client',
-      icon: Users,
-      color: 'bg-green-500',
-      action: () => console.log('New Client')
-    },
-    {
-      id: 'export-data',
-      title: 'Export Data',
-      description: 'Download reports and data',
-      icon: Download,
-      color: 'bg-purple-500',
-      action: () => console.log('Export Data')
-    },
-    {
-      id: 'view-analytics',
-      title: 'Analytics',
-      description: 'View detailed analytics',
-      icon: BarChart3,
-      color: 'bg-orange-500',
-      action: () => console.log('Analytics')
-    }
-  ];
-
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Quick Actions</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {quickActionItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={item.action}
-              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all duration-200 text-left group"
-            >
-              <div className={`w-12 h-12 ${item.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                <Icon className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                {item.title}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                {item.description}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Actions</h3>
-        <div className="space-y-3">
-          {recentActions.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400 text-center py-8">
-              No recent actions to display
-            </p>
-          ) : (
-            recentActions.map((action, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{action.title}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{action.description}</p>
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{action.time}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
     </div>
   );
 }

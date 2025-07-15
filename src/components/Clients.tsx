@@ -187,7 +187,12 @@ export function Clients({ showForm: externalShowForm, onCloseForm }: ClientsProp
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Clients</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage client information and payment history
+          </p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={handleExportAll}
@@ -325,8 +330,8 @@ export function Clients({ showForm: externalShowForm, onCloseForm }: ClientsProp
 
       {/* New Client Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
               {editingClient ? 'Edit Client' : 'New Client'}
             </h2>
@@ -473,8 +478,8 @@ export function Clients({ showForm: externalShowForm, onCloseForm }: ClientsProp
 
       {/* Client Details Modal */}
       {showClientDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             {(() => {
               const client = clients.find(c => c.id === showClientDetails);
               if (!client) return null;
@@ -484,57 +489,57 @@ export function Clients({ showForm: externalShowForm, onCloseForm }: ClientsProp
               return (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold">{client.name}</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{client.name}</h2>
                     <button
                       onClick={() => setShowClientDetails(null)}
-                      className="text-gray-500 hover:text-gray-700"
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     >
                       ×
                     </button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h3 className="font-semibold mb-2">Client Information</h3>
+                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                      <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Client Information</h3>
                       <div className="space-y-2 text-sm">
-                        <div><span className="font-medium">CNIC:</span> {client.cnic}</div>
-                        <div><span className="font-medium">Type:</span> {client.type}</div>
-                        <div><span className="font-medium">Phone:</span> {client.phone || 'N/A'}</div>
-                        <div><span className="font-medium">Email:</span> {client.email || 'N/A'}</div>
-                        <div><span className="font-medium">Notes:</span> {client.notes || 'N/A'}</div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">CNIC:</span> <span className="text-gray-600 dark:text-gray-400">{client.cnic}</span></div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">Type:</span> <span className="text-gray-600 dark:text-gray-400">{client.type}</span></div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">Phone:</span> <span className="text-gray-600 dark:text-gray-400">{client.phone || 'N/A'}</span></div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">Email:</span> <span className="text-gray-600 dark:text-gray-400">{client.email || 'N/A'}</span></div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">Notes:</span> <span className="text-gray-600 dark:text-gray-400">{client.notes || 'N/A'}</span></div>
                       </div>
                     </div>
 
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h3 className="font-semibold mb-2">Payment Summary</h3>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                      <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Payment Summary</h3>
                       <div className="space-y-2 text-sm">
-                        <div><span className="font-medium">Total Receipts:</span> {clientReceipts.length}</div>
-                        <div><span className="font-medium">Total Amount:</span> ₨{totalAmount.toLocaleString()}</div>
-                        <div><span className="font-medium">First Payment:</span> {clientReceipts.length > 0 ? format(Math.min(...clientReceipts.map(r => r.date.getTime())), 'MMM dd, yyyy') : 'N/A'}</div>
-                        <div><span className="font-medium">Last Payment:</span> {clientReceipts.length > 0 ? format(Math.max(...clientReceipts.map(r => r.date.getTime())), 'MMM dd, yyyy') : 'N/A'}</div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">Total Receipts:</span> <span className="text-gray-600 dark:text-gray-400">{clientReceipts.length}</span></div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">Total Amount:</span> <span className="text-gray-600 dark:text-gray-400">Rs. {totalAmount.toLocaleString()}</span></div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">First Payment:</span> <span className="text-gray-600 dark:text-gray-400">{clientReceipts.length > 0 ? format(Math.min(...clientReceipts.map(r => r.date.getTime())), 'MMM dd, yyyy') : 'N/A'}</span></div>
+                        <div><span className="font-medium text-gray-900 dark:text-white">Last Payment:</span> <span className="text-gray-600 dark:text-gray-400">{clientReceipts.length > 0 ? format(Math.max(...clientReceipts.map(r => r.date.getTime())), 'MMM dd, yyyy') : 'N/A'}</span></div>
                       </div>
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <h3 className="font-semibold mb-2">Payment History</h3>
+                    <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Payment History</h3>
                     <div className="overflow-x-auto">
-                      <table className="w-full border border-gray-200">
-                        <thead className="bg-gray-50">
+                      <table className="w-full border border-gray-200 dark:border-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700">
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nature of Work</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Payment Method</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nature of Work</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Payment Method</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                           {clientReceipts.map((receipt) => (
-                            <tr key={receipt.id}>
-                              <td className="px-4 py-2 text-sm">{format(receipt.date, 'MMM dd, yyyy')}</td>
-                              <td className="px-4 py-2 text-sm font-medium text-green-600">₨{receipt.amount.toLocaleString()}</td>
-                              <td className="px-4 py-2 text-sm">{receipt.natureOfWork}</td>
-                              <td className="px-4 py-2 text-sm capitalize">{receipt.paymentMethod.replace('_', ' ')}</td>
+                            <tr key={receipt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                              <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{format(receipt.date, 'MMM dd, yyyy')}</td>
+                              <td className="px-4 py-2 text-sm font-medium text-green-600 dark:text-green-400">Rs. {receipt.amount.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{receipt.natureOfWork}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900 dark:text-white capitalize">{receipt.paymentMethod.replace('_', ' ')}</td>
                             </tr>
                           ))}
                         </tbody>

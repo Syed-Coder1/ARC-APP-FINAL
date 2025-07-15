@@ -1,4 +1,4 @@
-# Tax Office Management System
+# Arkive - Tax Office Management System
 
 A comprehensive, modern tax office management system built with React, TypeScript, and Vite. This application provides complete client management, receipt tracking, expense monitoring, advanced analytics, and data export capabilities with both web and desktop deployment options.
 
@@ -10,7 +10,7 @@ A comprehensive, modern tax office management system built with React, TypeScrip
 - 🧾 **Receipt Management** - CNIC-linked receipts with payment tracking and CRUD operations
 - 👥 **Client Management** - Complete client profiles with payment history and editing capabilities
 - 💰 **Expense Tracking** - Categorized expense management with full CRUD operations (Office, Utilities, Supplies, Maintenance, Food, Rent, Salary, Other)
-- 📈 **Advanced Analytics** - Monthly trends, client performance, and growth metrics
+- 📈 **Advanced Analytics** - Monthly trends, client performance, growth metrics, and revenue forecasting
 - 📱 **Responsive Design** - Optimized for desktop, tablet, and mobile devices
 - 🌙 **Dark Mode** - Full dark mode support with smooth transition animations
 
@@ -18,7 +18,7 @@ A comprehensive, modern tax office management system built with React, TypeScrip
 - 📋 **Excel Export** - Professional Excel exports for receipts, clients, and payment histories
 - 🔄 **Backup & Restore** - Complete database backup and synchronization
 - 📝 **Activity Logging** - Comprehensive audit trail of all user actions
-- 🔔 **Smart Notifications** - Intelligent alerts with dashboard integration and mark-all-read functionality
+- 🔔 **Smart Notifications** - AI-powered alerts with dashboard integration and mark-all-read functionality
 - 🎯 **Quick Actions** - Direct form access from dashboard for streamlined workflows
 - 🖥️ **Desktop Application** - Electron-based desktop app for offline use
 - ⚡ **Performance Optimized** - Efficient data handling with smooth animations and transitions
@@ -54,7 +54,7 @@ A comprehensive, modern tax office management system built with React, TypeScrip
 ## 📁 Project Structure
 
 ```
-tax-office-management/
+arkive/
 ├── src/
 │   ├── components/           # React components
 │   │   ├── Dashboard.tsx     # Main dashboard with charts, statistics, and quick actions
@@ -63,7 +63,7 @@ tax-office-management/
 │   │   ├── Login.tsx         # Authentication interface with smooth animations
 │   │   ├── Layout.tsx        # Main layout with collapsible sidebar and enhanced animations
 │   │   ├── Settings.tsx      # Application settings with theme customization and backup
-│   │   ├── SimplePages.tsx   # Expenses, Activity Log, Notifications, Backup, Reports
+│   │   ├── SimplePages.tsx   # Expenses, Activity Log, Backup
 │   │   └── AdvancedFeatures.tsx # Analytics, Smart Notifications
 │   ├── contexts/             # React contexts
 │   │   └── AuthContext.tsx   # Authentication state management
@@ -102,22 +102,26 @@ tax-office-management/
 - **Theme Toggle** - Enhanced dark mode switching with transition animations
 - **Responsive Design** - Mobile-friendly with overlay and smooth transitions
 - **User Management** - Role display and logout functionality
+- **Arkive Branding** - Updated with new logo and branding
 
 ### Dashboard.tsx
-- **Quick Actions** - Direct form access for New Receipt, Add Client, Add Expense
+- **Quick Actions** - Direct form access for New Receipt, Add Client, Add Expense, View Analytics
 - **Notification Panel** - Bell icon with unread count and mark-all-read functionality
 - **Statistics Cards** - Animated cards with hover effects and trend indicators
-- **Charts Integration** - Monthly trends, expense categories, and revenue analysis
+- **Charts Integration** - Monthly trends, expense categories, and revenue analysis with forecasting
+- **Real-time Updates** - Data updates reflect immediately across all views
 
 ### App.tsx
 - **Page Transitions** - Smooth fade and scale animations between pages
 - **Form State Management** - Centralized form visibility control
 - **Route Management** - Clean page switching with transition effects
+- **Removed Features** - Whiteboards and Reports components removed
 
-### SimplePages.tsx
-- **Expenses Component** - Enhanced with Food, Rent, Salary categories
-- **Form Integration** - External form control for direct dashboard access
-- **CRUD Operations** - Full create, read, update, delete functionality
+### AdvancedFeatures.tsx
+- **Enhanced Analytics** - Revenue forecasting, client retention metrics, growth analysis
+- **Smart Notifications** - AI-powered business insights and alerts
+- **Export Capabilities** - Advanced data export with JSON format
+- **Performance Metrics** - Client lifetime value, frequency analysis, risk scoring
 
 ## 🔧 Installation & Setup
 
@@ -130,7 +134,7 @@ tax-office-management/
 1. **Clone the repository**:
 ```bash
 git clone <repository-url>
-cd tax-office-management
+cd arkive
 ```
 
 2. **Install dependencies**:
@@ -264,29 +268,27 @@ npm run build
 - Input validation and sanitization
 - CNIC format validation (13 digits)
 
-## 📈 Key Features Explained
+## 📈 Enhanced Analytics Features
 
-### Enhanced Dashboard
-- **Quick Actions Section** - Direct access to New Receipt, Add Client, Add Expense forms
-- **Notification Integration** - Bell icon with unread count and dropdown panel
-- **Mark All as Read** - Bulk notification management
-- **Animated Statistics** - Hover effects and smooth transitions
+### Advanced Metrics
+- **Revenue Forecasting** - AI-powered revenue predictions based on historical trends
+- **Client Retention Analysis** - Track client engagement and identify at-risk clients
+- **Growth Rate Calculations** - Month-over-month and year-over-year growth analysis
+- **Client Lifetime Value** - Calculate the total value of each client relationship
+- **Risk Scoring** - Automated risk assessment for client relationships
 
-### Improved Sidebar
-- **Better Icon Sizing** - 26px icons when collapsed for better visibility
-- **Smooth Animations** - Enhanced expand/collapse transitions
-- **Theme Toggle** - Improved dark mode switching with animations
-- **Responsive Behavior** - Mobile-friendly with overlay support
+### Smart Notifications
+- **Inactive Client Alerts** - Identify clients who haven't made payments recently
+- **High Expense Warnings** - Alert when monthly expenses exceed normal patterns
+- **Revenue Milestone Tracking** - Celebrate achievements and track progress
+- **Cash Flow Analysis** - Monitor negative cash flow situations
+- **Client Dependency Risk** - Alert when too much revenue depends on single clients
 
-### Form Integration
-- **Direct Access** - Quick Actions open forms directly instead of navigating to pages
-- **State Management** - Centralized form visibility control
-- **Seamless UX** - Forms open immediately when needed
-
-### Enhanced Expense Management
-- **Extended Categories** - Added Food, Rent, Salary categories
-- **Full CRUD** - Complete create, read, update, delete operations
-- **Form Integration** - Direct access from dashboard Quick Actions
+### Data Insights
+- **Payment Method Analysis** - Track preferred payment methods and trends
+- **Expense Category Breakdown** - Detailed analysis of spending patterns
+- **Yearly Performance Comparison** - Compare performance across multiple years
+- **Client Performance Ranking** - Identify top-performing clients and opportunities
 
 ## 🚀 Deployment Options
 
@@ -342,7 +344,6 @@ For initial setup and testing:
 
 ### Planned Features
 - **Multi-user Sync**: Cloud synchronization across devices
-- **Advanced Reports**: Custom report generation with templates
 - **API Integration**: External service integrations (tax portals, banks)
 - **Mobile App**: Native mobile applications for iOS and Android
 - **Advanced Security**: Multi-factor authentication and encryption
@@ -364,6 +365,7 @@ For initial setup and testing:
 3. **Sidebar Icons**: Verify icon sizes are set correctly (26px when collapsed)
 4. **Theme Transitions**: Ensure CSS transitions are not conflicting
 5. **Database Errors**: Clear browser storage and restart application
+6. **Modal Scrolling**: Forms are now properly scrollable in modals
 
 ### Support
 
@@ -419,4 +421,4 @@ This application is designed for production use with:
 
 ---
 
-**Built with ❤️ using React, TypeScript, and modern web technologies with enhanced animations and user experience.**
+**Built with ❤️ using React, TypeScript, and modern web technologies. Rebranded as Arkive with enhanced analytics and user experience.**

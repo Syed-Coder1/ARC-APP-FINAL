@@ -1,8 +1,9 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "arkive-tax-management",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Arkive - Modern Tax Office Management System",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
